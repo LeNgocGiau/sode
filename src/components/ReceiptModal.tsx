@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CustomerBetTicket } from '../types/lottery';
-import { formatCurrency, formatDateDisplay } from '../utils/formatters';
+import { formatCurrency, formatDateDisplay, formatShortPrice } from '../utils/formatters';
 import { groupBetItems } from '../utils/lotteryCalculator';
 import { Printer, Copy, Check, X, Sparkles, MapPin, Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   if (!ticket) return null;
 
-  const regionNames = { MN: 'Miền Nam (18 Lô)', MT: 'Miền Trung (18 Lô)', MB: 'Miền Bắc (27 Lô)' };
+  const regionNames = { MN: 'MIỀN NAM', MT: 'MIỀN TRUNG', MB: 'MIỀN BẮC' };
   const groupedItems = groupBetItems(ticket.items);
 
   const toggleExpand = (key: string) => {
@@ -32,23 +32,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleCopyZalo = () => {
-    let text = `📋 BIÊN LAI VÉ CƯỢC: ${ticket.customerName.toUpperCase()}\n`;
-    text += `📅 Ngày: ${formatDateDisplay(ticket.date)} | Đài: ${regionNames[ticket.region]} (${ticket.stationName || ''})\n`;
+    let text = `📅 Ngày: ${formatDateDisplay(ticket.date)} | Đài: ${regionNames[ticket.region]} (${ticket.stationName || ''})\n`;
     text += `--------------------------------\n`;
 
-    groupedItems.forEach((group, index) => {
-      text += `${index + 1}. [${group.numbersLabel}] - ${group.betTypeName}\n`;
+    groupedItems.forEach((group) => {
+      text += `[${group.numbersLabel}] - ${group.betTypeName} - ${formatShortPrice(group.unitPrice)}\n`;
       text += `   👉 ${group.items.length} số x ${group.prizesCount} giải x ${formatCurrency(group.unitPrice)} = ${formatCurrency(group.groupTotal)}\n`;
     });
 
     text += `--------------------------------\n`;
     text += `💰 TỔNG TIỀN: ${formatCurrency(ticket.totalAmount)}\n`;
-    text += `⏰ Ghi nhận lúc: ${new Date(ticket.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}\n`;
-    text += `Cảm ơn quý khách! Chúc may mắn! 🎉`;
+    text += `⏰ Ghi nhận lúc: ${new Date(ticket.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
 
     navigator.clipboard.writeText(text);
     setCopied(true);
-    onCopySuccess(`Đã sao chép biên lai của khách ${ticket.customerName} gửi Zalo!`);
+    onCopySuccess('Đã sao chép biên lai vé cược (đã ẩn tên khách) để gửi Zalo/SMS!');
     setTimeout(() => setCopied(false), 2000);
   };
 

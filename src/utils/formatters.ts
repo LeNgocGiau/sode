@@ -8,6 +8,18 @@ export function formatCurrency(amount: number | undefined | null): string {
 }
 
 /**
+ * Format unit price into compact k-notation (e.g. 100000 -> "100k", 2000 -> "2k")
+ */
+export function formatShortPrice(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(amount) || amount <= 0) return '0k';
+  if (amount >= 1000) {
+    const kVal = amount / 1000;
+    return Number.isInteger(kVal) ? `${kVal}k` : `${kVal.toString().replace('.', ',')}k`;
+  }
+  return formatCurrency(amount);
+}
+
+/**
  * Format raw number with thousand dots separator (e.g., 2000 -> "2.000")
  */
 export function formatNumberWithDots(num: number | string): string {

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { CustomerBetTicket, GroupedBetItem, NumberStatisticRow, ParsedBetItem, RegionType } from '../types/lottery';
-import { formatCurrency, formatDateDisplay, getTodayDateString, getYesterdayDateString } from '../utils/formatters';
+import { formatCurrency, formatDateDisplay, formatShortPrice, getTodayDateString, getYesterdayDateString } from '../utils/formatters';
 import { groupBetItems } from '../utils/lotteryCalculator';
 import { 
   Search, 
@@ -481,24 +481,25 @@ export const NumberStatistics: React.FC<NumberStatisticsProps> = ({
     const dateLabel =
       statsDateFilter === 'ALL_DATES' ? 'Tất cả các ngày' : formatDateDisplay(statsDateFilter);
     let text = `📊 BẢNG GOM SỐ & THỐNG KÊ NGÀY: ${dateLabel} (${regionLabel})\n`;
-    text += `💰 Tổng cược toàn bảng: ${formatCurrency(totalDayAmount)}\n`;
     text += `--------------------------------\n`;
 
     if (viewMode === 'grouped' || viewMode === 'by_customer' || viewMode === 'by_date') {
-      filteredGroupedRows.forEach((row, idx) => {
-        text += `${idx + 1}. Khách ${row.customerName} (${formatDateDisplay(row.date)}): [${row.numbersLabel}] - ${row.betTypeName}\n`;
+      filteredGroupedRows.forEach((row) => {
+        text += `[${row.numbersLabel}] - ${row.betTypeName} - ${formatShortPrice(row.unitPrice)}\n`;
         text += `   👉 ${row.items.length} số x ${row.prizesCount} giải x ${formatCurrency(row.unitPrice)} = ${formatCurrency(row.groupTotal)}\n`;
       });
     } else {
-      filteredStats.forEach((s, idx) => {
-        const custNames = Array.from(new Set(s.customers.map((c) => c.customerName))).join(', ');
-        text += `${idx + 1}. [${s.number}] - ${s.timesBet} lần - ${formatCurrency(s.totalAmount)} (${custNames})\n`;
+      filteredStats.forEach((s) => {
+        text += `[${s.number}] - ${s.timesBet} lần - ${formatCurrency(s.totalAmount)}\n`;
       });
     }
 
+    text += `--------------------------------\n`;
+    text += `💰 Tổng Tiền Số: ${formatCurrency(totalDayAmount)}`;
+
     navigator.clipboard.writeText(text);
     setCopied(true);
-    onCopySuccess('Đã sao chép bảng gom số vào clipboard!');
+    onCopySuccess('Đã sao chép bảng gom số (đã ẩn tên khách) vào clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { BetRateConfig, BetType, CustomerBetTicket, GroupedBetItem, RegionType } from '../types/lottery';
 import { BET_TYPE_DEFINITIONS } from '../data/defaultConfig';
-import { formatCurrency, formatDateDisplay, formatNumberWithDots, parseCurrencyInput } from '../utils/formatters';
+import { formatCurrency, formatDateDisplay, formatNumberWithDots, formatShortPrice, parseCurrencyInput } from '../utils/formatters';
 import { buildBetItems, extractNumbersFromString, groupBetItems } from '../utils/lotteryCalculator';
 import { 
   Copy, 
@@ -236,12 +236,11 @@ export const CustomerBetList: React.FC<CustomerBetListProps> = ({
     const dateFormatted = formatDateDisplay(ticket.date);
     const grouped = groupBetItems(ticket.items);
 
-    let text = `📋 VÉ CƯỢC: ${ticket.customerName.toUpperCase()}\n`;
-    text += `📅 Ngày: ${dateFormatted} | Đài: ${regionNames[ticket.region]} (${ticket.stationName || ''})\n`;
+    let text = `📅 Ngày: ${dateFormatted} | Đài: ${regionNames[ticket.region]} (${ticket.stationName || ''})\n`;
     text += `--------------------------------\n`;
 
-    grouped.forEach((group, index) => {
-      text += `${index + 1}. [${group.numbersLabel}] - ${group.betTypeName}\n`;
+    grouped.forEach((group) => {
+      text += `[${group.numbersLabel}] - ${group.betTypeName} - ${formatShortPrice(group.unitPrice)}\n`;
       text += `   👉 ${group.items.length} số x ${group.prizesCount} giải x ${formatCurrency(group.unitPrice)} = ${formatCurrency(group.groupTotal)}\n`;
     });
 
@@ -251,7 +250,7 @@ export const CustomerBetList: React.FC<CustomerBetListProps> = ({
 
     navigator.clipboard.writeText(text);
     setCopiedTicketId(ticket.id);
-    onCopyTextSuccess(`Đã sao chép tin nhắn vé cược của ${ticket.customerName}! Bạn có thể dán vào Zalo/SMS gửi khách.`);
+    onCopyTextSuccess('Đã sao chép tin nhắn vé cược (đã ẩn tên khách)! Bạn có thể dán vào Zalo/SMS.');
 
     setTimeout(() => {
       setCopiedTicketId(null);
