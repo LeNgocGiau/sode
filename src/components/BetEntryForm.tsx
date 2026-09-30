@@ -152,20 +152,9 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
     }
   }, [numbersInput, stagedItems.length, selectedBetTypes.length, numericMoney]);
 
-  // Handle money input changes, automatically formatting with dots every 3 digits
+  // Handle money input changes: strictly digits only, automatically formatting with dots every 3 digits
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = e.target.value;
-    
-    // Check if user is typing shortcut like 2k, 10k, 1.5tr
-    if (/[kmtr]/i.test(rawVal)) {
-      setMoneyDisplay(rawVal);
-      const parsed = parseCurrencyInput(rawVal);
-      setNumericMoney(parsed);
-      return;
-    }
-
-    // Clean dots and get raw numeric value
-    const digitsOnly = rawVal.replace(/\D/g, '');
+    const digitsOnly = e.target.value.replace(/\D/g, '');
     if (!digitsOnly) {
       setMoneyDisplay('');
       setNumericMoney(0);
@@ -177,15 +166,9 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
     setMoneyDisplay(formatNumberWithDots(num));
   };
 
-  // Handle money input in inline group editor
+  // Handle money input in inline group editor: strictly digits only
   const handleEditGroupMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = e.target.value;
-    if (/[kmtr]/i.test(rawVal)) {
-      setEditGroupMoneyDisplay(rawVal);
-      setEditGroupNumericMoney(parseCurrencyInput(rawVal));
-      return;
-    }
-    const digitsOnly = rawVal.replace(/\D/g, '');
+    const digitsOnly = e.target.value.replace(/\D/g, '');
     if (!digitsOnly) {
       setEditGroupMoneyDisplay('');
       setEditGroupNumericMoney(0);
@@ -680,20 +663,22 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
             />
           </div>
 
-          {/* Money Input with automatic 3-digit separator */}
+          {/* Money Input with automatic 3-digit separator (digits only) */}
           <div className="lg:col-span-4">
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-semibold text-slate-300">
                 2. Tiền Cược / 1 Giải (Có dấu cách 3 số)
               </label>
-              <span className="text-[11px] text-slate-400">Gõ tắt 2k, 10k...</span>
+              <span className="text-[11px] text-slate-400">Chỉ nhập số</span>
             </div>
             <div className="relative">
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9.]*"
                 value={moneyDisplay}
                 onChange={handleMoneyChange}
-                placeholder="2.000 hoặc 2k"
+                placeholder="2.000"
                 className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-lg pl-3 pr-10 py-2 sm:py-2.5 text-base font-bold font-mono text-amber-300 placeholder-slate-600 focus:outline-none transition-colors tabular-nums"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">

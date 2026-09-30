@@ -105,14 +105,7 @@ export const CustomerBetList: React.FC<CustomerBetListProps> = ({
   };
 
   const handleInlineMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (raw.toLowerCase().endsWith('k')) {
-      const parsed = parseCurrencyInput(raw);
-      setInlineEditMoneyNumeric(parsed);
-      setInlineEditMoneyDisplay(formatNumberWithDots(parsed));
-      return;
-    }
-    const digitsOnly = raw.replace(/\D/g, '');
+    const digitsOnly = e.target.value.replace(/\D/g, '');
     if (!digitsOnly) {
       setInlineEditMoneyNumeric(0);
       setInlineEditMoneyDisplay('');
