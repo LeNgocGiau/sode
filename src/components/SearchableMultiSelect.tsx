@@ -13,7 +13,7 @@ export interface MultiSelectOption<T = string> {
 export interface SearchableMultiSelectProps<T = string> {
   options: MultiSelectOption<T>[];
   selectedValues: T[];
-  onChange: (newSelected: T[]) => void;
+  onChange: (newSelected: T[], lastToggledValue?: T, searchQuery?: string) => void;
   label?: string;
   placeholder?: string;
   searchPlaceholder?: string;
@@ -128,9 +128,9 @@ export function SearchableMultiSelect<T extends string | number>({
     if (disabled) return;
     const isAlreadySelected = selectedValues.includes(val);
     if (isAlreadySelected) {
-      onChange(selectedValues.filter((v) => v !== val));
+      onChange(selectedValues.filter((v) => v !== val), val, searchQuery);
     } else {
-      onChange([...selectedValues, val]);
+      onChange([...selectedValues, val], val, searchQuery);
     }
   };
 

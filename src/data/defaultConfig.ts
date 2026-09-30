@@ -26,15 +26,15 @@ export const REGIONS: RegionInfo[] = [
 ];
 
 export const SPECIFIC_PRIZES: SpecificPrizeOption[] = [
-  { id: 'g8', name: 'Giải 8 (Đầu MN/MT)', numDigits: 2, prizesCountMN: 1, prizesCountMB: 0 },
-  { id: 'g7', name: 'Giải 7', numDigits: 2, prizesCountMN: 1, prizesCountMB: 4 },
-  { id: 'g6', name: 'Giải 6', numDigits: 3, prizesCountMN: 3, prizesCountMB: 3 },
-  { id: 'g5', name: 'Giải 5', numDigits: 4, prizesCountMN: 1, prizesCountMB: 6 },
-  { id: 'g4', name: 'Giải 4', numDigits: 4, prizesCountMN: 7, prizesCountMB: 4 },
-  { id: 'g3', name: 'Giải 3', numDigits: 5, prizesCountMN: 2, prizesCountMB: 6 },
-  { id: 'g2', name: 'Giải 2', numDigits: 5, prizesCountMN: 1, prizesCountMB: 2 },
-  { id: 'g1', name: 'Giải Nhất', numDigits: 5, prizesCountMN: 1, prizesCountMB: 1 },
-  { id: 'db', name: 'Giải Đặc Biệt (Chót)', numDigits: 2, prizesCountMN: 1, prizesCountMB: 1 },
+  { id: 'g8', name: 'G8 - Giải 8 (Đầu MN/MT)', numDigits: 2, prizesCountMN: 1, prizesCountMB: 0 },
+  { id: 'g7', name: 'G7 - Giải 7', numDigits: 2, prizesCountMN: 1, prizesCountMB: 4 },
+  { id: 'g6', name: 'G6 - Giải 6', numDigits: 3, prizesCountMN: 3, prizesCountMB: 3 },
+  { id: 'g5', name: 'G5 - Giải 5', numDigits: 4, prizesCountMN: 1, prizesCountMB: 6 },
+  { id: 'g4', name: 'G4 - Giải 4', numDigits: 4, prizesCountMN: 7, prizesCountMB: 4 },
+  { id: 'g3', name: 'G3 - Giải 3', numDigits: 5, prizesCountMN: 2, prizesCountMB: 6 },
+  { id: 'g2', name: 'G2 - Giải 2', numDigits: 5, prizesCountMN: 1, prizesCountMB: 2 },
+  { id: 'g1', name: 'G1 - Giải Nhất', numDigits: 5, prizesCountMN: 1, prizesCountMB: 1 },
+  { id: 'db', name: 'GĐB - Giải Đặc Biệt (Chót)', numDigits: 2, prizesCountMN: 1, prizesCountMB: 1 },
 ];
 
 export const BET_TYPE_DEFINITIONS: {
@@ -147,11 +147,11 @@ export const BET_TYPE_DEFINITIONS: {
   },
   {
     type: 'giai_cu_the',
-    label: 'Giải Cụ Thể (G8, G7, G6...)',
+    label: 'Giải Cụ Thể (G8, G7, G6, G5, G4, G3, G2, G1, GĐB)',
     category: 'dacbiet',
     badge: 'Tùy chọn',
     defaultDigits: 2,
-    description: 'Chỉ định đánh riêng vào một giải cụ thể (G8, G7, G4, ĐB...)',
+    description: 'Chỉ định đánh riêng vào một giải cụ thể (g8, g7, g6, g5, g4, g3, g2, g1, gđb, gdb, giải đặc biệt)',
     getPrizesCount: (region, specificPrizeId) => {
       const prize = SPECIFIC_PRIZES.find((p) => p.id === specificPrizeId);
       if (!prize) return 1;

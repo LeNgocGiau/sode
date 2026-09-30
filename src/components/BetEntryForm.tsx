@@ -489,24 +489,25 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
     setStationName('');
   };
 
-  // Quick helper to fill sample requested by user:
-  // "75 10 86 72 bao lô 5 cuối con 2k"
-  const handleFillExampleUser = () => {
-    setCustomerName('Anh Ba (Ví dụ)');
-    setRegion('MN');
-    setNumbersInput('75 10 86 72');
-    setSelectedBetTypes(['bao_5_cuoi']);
-    setNumericMoney(2000);
-    setMoneyDisplay('2.000');
-  };
-
-  // Quick helper for 2nd part of example:
-  // "778 694 đặc biệt 10k"
-  const handleFillExampleSpecial = () => {
-    setNumbersInput('778 694');
-    setSelectedBetTypes(['chot_db']);
-    setNumericMoney(10000);
-    setMoneyDisplay('10.000');
+  // Helper to detect specific prize from search query (g8, g7, g6, g5, g4, g3, g2, g1, gđb/gdb)
+  const detectSpecificPrizeFromQuery = (q?: string): string | null => {
+    if (!q) return null;
+    const norm = q
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .trim();
+    if (/\bg8\b|giai\s*8/.test(norm)) return 'g8';
+    if (/\bg7\b|giai\s*7/.test(norm)) return 'g7';
+    if (/\bg6\b|giai\s*6/.test(norm)) return 'g6';
+    if (/\bg5\b|giai\s*5/.test(norm)) return 'g5';
+    if (/\bg4\b|giai\s*4/.test(norm)) return 'g4';
+    if (/\bg3\b|giai\s*3/.test(norm)) return 'g3';
+    if (/\bg2\b|giai\s*2/.test(norm)) return 'g2';
+    if (/\bg1\b|giai\s*1|giai\s*nhat/.test(norm)) return 'g1';
+    if (/\bgdb\b|\bdb\b|dac\s*biet/.test(norm)) return 'db';
+    return null;
   };
 
   return (
@@ -567,25 +568,6 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
           <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
             Nhập dãy số, chọn nhiều cách chơi cùng lúc, hệ thống tự động gom dòng và tính tổng tiền
           </p>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-          <button
-            type="button"
-            onClick={handleFillExampleUser}
-            className="text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors whitespace-nowrap"
-            title="Thử mẫu: 75 10 86 72 bao 5 cuối 2k"
-          >
-            Mẫu 1: 75 10 86 72 (Bao 5 cuối 2k)
-          </button>
-          <button
-            type="button"
-            onClick={handleFillExampleSpecial}
-            className="text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors whitespace-nowrap"
-            title="Thử mẫu: 778 694 ĐB 10k"
-          >
-            Mẫu 2: 778 694 (ĐB 10k)
-          </button>
         </div>
       </div>
 
@@ -744,11 +726,19 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
           <SearchableMultiSelect<BetType>
             label="3. Chọn Hình Thức Cách Chơi (Tự động tính số giải & thành tiền)"
             placeholder="-- Bấm vào đây để tìm và chọn một hoặc nhiều cách chơi --"
-            searchPlaceholder="Tìm kiếm cách chơi: bao lo, 2 chan, 5 cuoi, de, dac biet, xiu chu..."
+            searchPlaceholder="Tìm kiếm: bao lo, 2 chan, 5 cuoi, g8, g7, g6, g5, g4, g3, g2, g1, gđb..."
             noResultsText="No results found (Không tìm thấy hình thức phù hợp)"
             options={betTypeOptions}
             selectedValues={selectedBetTypes}
-            onChange={(newSelected) => setSelectedBetTypes(newSelected)}
+            onChange={(newSelected, lastToggled, query) => {
+              setSelectedBetTypes(newSelected);
+              if (lastToggled === 'giai_cu_the' && newSelected.includes('giai_cu_the')) {
+                const matchedPrize = detectSpecificPrizeFromQuery(query);
+                if (matchedPrize) {
+                  setSpecificPrizeId(matchedPrize);
+                }
+              }
+            }}
           />
 
           {/* Quick preset chips below the dropdown for rapid 1-tap toggling */}
@@ -763,6 +753,7 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
               { type: 'dau_duoi' as BetType, label: 'Đầu Đuôi' },
               { type: 'xiu_chu_duoi' as BetType, label: 'Xỉu Chủ ĐB' },
               { type: 'cheo_2_5' as BetType, label: 'Đá Chéo' },
+              { type: 'giai_cu_the' as BetType, label: 'Giải Cụ Thể (G8..GĐB)' },
             ].map((preset) => {
               const isActive = selectedBetTypes.includes(preset.type);
               return (
@@ -789,23 +780,46 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
             })}
           </div>
 
-          {/* If Specific Prize is selected, show dropdown to choose which prize */}
+          {/* If Specific Prize is selected, show quick buttons + dropdown to choose which prize */}
           {selectedBetTypes.includes('giai_cu_the') && (
-            <div className="mt-2.5 p-3 bg-slate-950 rounded-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <span className="text-xs text-amber-400 font-medium whitespace-nowrap">
-                Chỉ định đánh riêng cho giải cụ thể:
-              </span>
-              <select
-                value={specificPrizeId}
-                onChange={(e) => setSpecificPrizeId(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-              >
-                {SPECIFIC_PRIZES.map((prize) => (
-                  <option key={prize.id} value={prize.id}>
-                    {prize.name} ({region === 'MB' ? prize.prizesCountMB : prize.prizesCountMN} giải - {prize.numDigits} số)
-                  </option>
-                ))}
-              </select>
+            <div className="mt-2.5 p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs text-amber-400 font-medium">
+                  Chỉ định đánh riêng cho giải cụ thể:
+                </span>
+                <select
+                  value={specificPrizeId}
+                  onChange={(e) => setSpecificPrizeId(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                >
+                  {SPECIFIC_PRIZES.map((prize) => (
+                    <option key={prize.id} value={prize.id}>
+                      {prize.name} ({region === 'MB' ? prize.prizesCountMB : prize.prizesCountMN} giải - {prize.numDigits} số)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {SPECIFIC_PRIZES.map((prize) => {
+                  const shortCode = prize.id === 'db' ? 'GĐB' : prize.id.toUpperCase();
+                  const isSelected = specificPrizeId === prize.id;
+                  return (
+                    <button
+                      type="button"
+                      key={prize.id}
+                      onClick={() => setSpecificPrizeId(prize.id)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border transition-colors ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-amber-500/40 hover:text-amber-300'
+                      }`}
+                    >
+                      {shortCode}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
