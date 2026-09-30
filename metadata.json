@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Sổ Ghi Số Đề \u0026 Tính Tiền Tự Động 3 Miền",
+  "description": "Ứng dụng chuyên nghiệp ghi chép số đề, tự động tính chi tiết từng giải theo 3 miền Bắc - Trung - Nam, thống kê con số theo ngày và tổng tiền khách hàng.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
