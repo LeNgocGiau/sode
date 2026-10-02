@@ -15,7 +15,8 @@ import {
 import { 
   buildBetItems, 
   extractNumbersFromString,
-  groupBetItems
+  groupBetItems,
+  parseSmartBetLines
 } from '../utils/lotteryCalculator';
 import { 
   formatCurrency, 
@@ -185,36 +186,87 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
     setMoneyDisplay(formatNumberWithDots(amount));
   };
 
-  // Parsed numbers from input
-  const extractedNumbers = useMemo(() => {
-    return extractNumbersFromString(numbersInput);
+  // Smart parsed lines from textarea (supports "78 87 94 64 13 bao lô 5k\n169 847 Đb 2k\n16 đá 58 3k")
+  const smartParsedLines = useMemo(() => {
+    return parseSmartBetLines(numbersInput);
   }, [numbersInput]);
+
+  // Handle textarea input change and auto-fill Box 2 (money) & Box 3 (bet types) when smart syntax is typed
+  const handleNumbersInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setNumbersInput(val);
+
+    const parsedLines = parseSmartBetLines(val);
+    const detectedTypes = Array.from(
+      new Set(parsedLines.map((l) => l.betType).filter((t): t is BetType => Boolean(t)))
+    );
+    if (detectedTypes.length > 0) {
+      setSelectedBetTypes(detectedTypes);
+    }
+
+    const lineWithSpecificPrize = parsedLines.find((l) => l.specificPrizeId);
+    if (lineWithSpecificPrize?.specificPrizeId) {
+      setSpecificPrizeId(lineWithSpecificPrize.specificPrizeId);
+    }
+
+    const linesWithPrice = parsedLines.filter((l) => l.unitPrice && l.unitPrice > 0);
+    if (linesWithPrice.length > 0) {
+      const latestPrice = linesWithPrice[linesWithPrice.length - 1].unitPrice!;
+      setNumericMoney(latestPrice);
+      setMoneyDisplay(formatNumberWithDots(latestPrice));
+    }
+  };
+
+  // Parsed numbers from input (excluding money tokens like 5k, 2k, 3k)
+  const extractedNumbers = useMemo(() => {
+    return smartParsedLines.flatMap((line) => line.numbers);
+  }, [smartParsedLines]);
 
   // Remove a specific number from the current input string
   const handleRemoveNumberFromInput = (numToRemove: string) => {
-    const remaining = extractedNumbers.filter((n) => n !== numToRemove);
-    setNumbersInput(remaining.join(' '));
+    const hasSmart = smartParsedLines.some((l) => l.hasSmartSyntax);
+    if (!hasSmart) {
+      const remaining = extractedNumbers.filter((n) => n !== numToRemove);
+      setNumbersInput(remaining.join(' '));
+      return;
+    }
+    const updatedLines = numbersInput
+      .split(/\r?\n/)
+      .map((line) => line.replace(new RegExp(`\\b${numToRemove}\\b`, 'g'), '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    setNumbersInput(updatedLines.join('\n'));
   };
 
-  // Real-time preview of the current bet entry before adding (calculated across all selected bet types)
+  // Real-time preview of the current bet entry before adding (supports per-line smart syntax & manual multi-select)
   const previewItems = useMemo(() => {
-    if (extractedNumbers.length === 0 || numericMoney <= 0 || selectedBetTypes.length === 0) return [];
-    
+    if (smartParsedLines.length === 0) return [];
+
     const allItems: ParsedBetItem[] = [];
-    selectedBetTypes.forEach((bType) => {
-      const items = buildBetItems(
-        extractedNumbers,
-        bType,
-        region,
-        numericMoney,
-        specificPrizeId,
-        rateConfigs
-      );
-      allItems.push(...items);
+    smartParsedLines.forEach((line) => {
+      if (line.numbers.length === 0) return;
+      const linePrice = line.unitPrice && line.unitPrice > 0 ? line.unitPrice : numericMoney;
+      if (linePrice <= 0) return;
+
+      const lineBetTypes = line.betType ? [line.betType] : selectedBetTypes;
+      if (lineBetTypes.length === 0) return;
+
+      const lineSpecificPrize = line.specificPrizeId || specificPrizeId;
+
+      lineBetTypes.forEach((bType) => {
+        const items = buildBetItems(
+          line.numbers,
+          bType,
+          region,
+          linePrice,
+          lineSpecificPrize,
+          rateConfigs
+        );
+        allItems.push(...items);
+      });
     });
 
     return allItems;
-  }, [extractedNumbers, selectedBetTypes, region, numericMoney, specificPrizeId, rateConfigs]);
+  }, [smartParsedLines, selectedBetTypes, region, numericMoney, specificPrizeId, rateConfigs]);
 
   // Grouped preview items (gom lại 1 dòng duy nhất cho mỗi hình thức & đơn giá)
   const groupedPreviewItems = useMemo(() => {
@@ -261,6 +313,13 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
 
   // Remove a whole group from preview
   const handleRemovePreviewGroup = (group: GroupedBetItem) => {
+    if (smartParsedLines.some((l) => l.hasSmartSyntax) && smartParsedLines.length > 1) {
+      const remainingRawLines = smartParsedLines
+        .filter((l) => !(l.betType === group.betType && (l.unitPrice || numericMoney) === group.unitPrice))
+        .map((l) => l.rawLine);
+      setNumbersInput(remainingRawLines.join('\n'));
+      return;
+    }
     if (selectedBetTypes.length > 1) {
       setSelectedBetTypes((prev) => prev.filter((t) => t !== group.betType));
     } else {
@@ -655,10 +714,10 @@ export const BetEntryForm: React.FC<BetEntryFormProps> = ({
               </div>
             </div>
             <textarea
-              rows={2}
+              rows={3}
               value={numbersInput}
-              onChange={(e) => setNumbersInput(e.target.value)}
-              placeholder="Ví dụ nhập: 75 10 86 72 hoặc 778 694..."
+              onChange={handleNumbersInputChange}
+              placeholder={'Ví dụ nhập nhanh nhiều dòng:\n78 87 94 64 13 bao lô 5k\n169 847 Đb 2k\n16 đá 58 3k'}
               className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-lg p-2.5 text-sm sm:text-base text-white font-mono placeholder-slate-600 focus:outline-none transition-colors"
             />
           </div>

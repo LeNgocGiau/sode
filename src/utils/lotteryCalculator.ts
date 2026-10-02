@@ -14,6 +14,158 @@ export function extractNumbersFromString(input: string): string[] {
   return rawParts.filter((item) => item.length > 0);
 }
 
+export interface SmartParsedLine {
+  rawLine: string;
+  numbers: string[];
+  betType?: BetType;
+  specificPrizeId?: string;
+  unitPrice?: number;
+  hasSmartSyntax: boolean;
+}
+
+function normalizeVietnamese(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
+}
+
+const SMART_BET_PATTERNS: {
+  regex: RegExp;
+  betType: BetType;
+  specificPrizeId?: string;
+}[] = [
+  { regex: /\b(bao\s*lo\s*5\s*cuoi|bao\s*5\s*cuoi|lo\s*5\s*cuoi|5\s*cuoi|b5c)\b/i, betType: 'bao_5_cuoi' },
+  { regex: /\b(12\s*lo\s*dau|12\s*giai\s*dau|12\s*dau|12d)\b/i, betType: '12_dau' },
+  { regex: /\b(12\s*lo\s*cuoi|12\s*giai\s*cuoi|12\s*cuoi|12c)\b/i, betType: '12_cuoi' },
+  { regex: /\b(xiu\s*chu\s*dau\s*duoi|xc\s*dau\s*duoi|xc\s*dd|xiu\s*chu\s*dd)\b/i, betType: 'xiu_chu_dau_duoi' },
+  { regex: /\b(xiu\s*chu\s*dau|xc\s*dau|xcd)\b/i, betType: 'xiu_chu_dau' },
+  { regex: /\b(xiu\s*chu\s*duoi|xc\s*duoi|xiu\s*chu\s*db|xc\s*db|xiu\s*chu|xc|3\s*cang\s*db|3\s*cang\s*de|3\s*cang)\b/i, betType: 'xiu_chu_duoi' },
+  { regex: /\b(bao\s*lo\s*3\s*chan|bao\s*lo\s*3\s*so|bao\s*3\s*chan|bao\s*3\s*so|lo\s*3\s*chan|lo\s*3\s*so|3\s*chan)\b/i, betType: '3_chan_lo' },
+  { regex: /\b(bao\s*lo\s*2\s*chan|bao\s*lo\s*2\s*so|bao\s*2\s*chan|bao\s*2\s*so|lo\s*2\s*chan|lo\s*2\s*so|2\s*chan|bao\s*lo|bao|bl|lo)\b/i, betType: '2_chan_lo' },
+  { regex: /\b(dau\s*duoi|dd)\b/i, betType: 'dau_duoi' },
+  { regex: /\b(dau\s*g8|dau\s*g7)\b/i, betType: 'dau_g8' },
+  { regex: /\b(g8|giai\s*8)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g8' },
+  { regex: /\b(g7|giai\s*7)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g7' },
+  { regex: /\b(g6|giai\s*6)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g6' },
+  { regex: /\b(g5|giai\s*5)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g5' },
+  { regex: /\b(g4|giai\s*4)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g4' },
+  { regex: /\b(g3|giai\s*3)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g3' },
+  { regex: /\b(g2|giai\s*2)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g2' },
+  { regex: /\b(g1|giai\s*1|giai\s*nhat)\b/i, betType: 'giai_cu_the', specificPrizeId: 'g1' },
+  { regex: /\b(gdb|giai\s*dac\s*biet)\b/i, betType: 'giai_cu_the', specificPrizeId: 'db' },
+  { regex: /\b(chot\s*dac\s*biet|chot\s*db|dac\s*biet|chot|db|de|duoi)\b/i, betType: 'chot_db' },
+  { regex: /\b(dau)\b/i, betType: 'dau_g8' },
+  { regex: /\b(da\s*cheo|lo\s*da|da\s*vong|da|cheo|dv|dx)\b/i, betType: 'cheo_2_5' },
+  { regex: /\b(xien\s*3|xien\s*ba|x3)\b/i, betType: 'xien_3' },
+];
+
+/**
+ * Parse single or multi-line input that may contain natural syntax such as:
+ * "78 87 94 64 13 bao lô 5k"
+ * "169 847 Đb 2k"
+ * "16 đá 58 3k"
+ */
+export function parseSmartBetLines(input: string): SmartParsedLine[] {
+  if (!input || !input.trim()) return [];
+
+  const rawLines = input
+    .split(/\r?\n|;/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  return rawLines
+    .map((rawLine): SmartParsedLine => {
+      // Normalize while keeping character length 1-to-1 with NFD stripped string
+      let working = normalizeVietnamese(rawLine);
+      let detectedBetType: BetType | undefined;
+      let detectedSpecificPrizeId: string | undefined;
+      let detectedUnitPrice: number | undefined;
+
+      // 1. Detect money with explicit suffix (e.g. 5k, 2k, 3k, 10n, 2.000d)
+      const moneySuffixRegex = /\b(\d+(?:[.,]\d+)?)\s*(k|n|ng|ngan|nghin|tr|trieu|d)\b/i;
+      const moneyMatch = working.match(moneySuffixRegex);
+      if (moneyMatch && moneyMatch.index !== undefined) {
+        const rawNumStr = moneyMatch[1];
+        const unit = moneyMatch[2].toLowerCase();
+        if (unit === 'd') {
+          const digits = rawNumStr.replace(/\D/g, '');
+          detectedUnitPrice = parseInt(digits, 10) || 0;
+        } else if (unit === 'tr' || unit === 'trieu') {
+          const val = parseFloat(rawNumStr.replace(',', '.'));
+          detectedUnitPrice = Math.round(val * 1000000);
+        } else {
+          // k, n, ng, ngan, nghin
+          // Check if rawNumStr is thousand-dotted like "2.000k" vs decimal "2.5k"
+          if (/^\d{1,3}(\.\d{3})+$/.test(rawNumStr)) {
+            detectedUnitPrice = parseInt(rawNumStr.replace(/\./g, ''), 10);
+          } else {
+            const val = parseFloat(rawNumStr.replace(',', '.'));
+            detectedUnitPrice = Math.round(val * 1000);
+          }
+        }
+        // Replace matched money token with spaces so its digits aren't extracted as lottery numbers
+        working =
+          working.slice(0, moneyMatch.index) +
+          ' '.repeat(moneyMatch[0].length) +
+          working.slice(moneyMatch.index + moneyMatch[0].length);
+      }
+
+      // 2. Detect bet type keyword
+      for (const pattern of SMART_BET_PATTERNS) {
+        const match = working.match(pattern.regex);
+        if (match && match.index !== undefined) {
+          detectedBetType = pattern.betType;
+          if (pattern.specificPrizeId) {
+            detectedSpecificPrizeId = pattern.specificPrizeId;
+          }
+          // Remove the matched bet type phrase so digits inside "5 cuoi", "12 dau", "2 chan", "g8" aren't extracted as bet numbers
+          working =
+            working.slice(0, match.index) +
+            ' '.repeat(match[0].length) +
+            working.slice(match.index + match[0].length);
+          break;
+        }
+      }
+
+      // 3. If no suffix money was found, but a bet type WAS found, check if the line ends with a thousand-formatted amount (e.g. "2.000" or "5000")
+      if (!detectedUnitPrice && detectedBetType) {
+        const trailingMoneyRegex = /(\d{1,3}(?:\.\d{3})+|\b\d{4,})\s*$/;
+        const trailingMatch = working.match(trailingMoneyRegex);
+        if (trailingMatch && trailingMatch.index !== undefined) {
+          const digits = trailingMatch[1].replace(/\D/g, '');
+          const parsedVal = parseInt(digits, 10);
+          if (parsedVal >= 1000) {
+            detectedUnitPrice = parsedVal;
+            working =
+              working.slice(0, trailingMatch.index) +
+              ' '.repeat(trailingMatch[0].length) +
+              working.slice(trailingMatch.index + trailingMatch[0].length);
+          }
+        }
+      }
+
+      // 4. Extract remaining numbers as the lottery numbers to bet
+      const numbers = working
+        .trim()
+        .split(/[^0-9]+/)
+        .filter((item) => item.length > 0);
+
+      const hasSmartSyntax = Boolean(detectedBetType || detectedUnitPrice);
+
+      return {
+        rawLine,
+        numbers,
+        betType: detectedBetType,
+        specificPrizeId: detectedSpecificPrizeId,
+        unitPrice: detectedUnitPrice,
+        hasSmartSyntax,
+      };
+    })
+    .filter((line) => line.numbers.length > 0 || line.hasSmartSyntax);
+}
+
 /**
  * Generate 2-element combinations from an array of numbers (for Chéo / Đá)
  * C(n, 2)
